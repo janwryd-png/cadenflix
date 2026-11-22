@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StreamFlix - Watch Movies, TV Shows & Anime</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="apple-touch-icon" href="icon.png" />
+  <link rel="preconnect" href="https://api.themoviedb.org" />
+  <link rel="preconnect" href="https://image.tmdb.org" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Navbar -->
+  <header class="navbar" id="navbar">
+    <div class="nav-left">
+      <h1 class="logo" tabindex="0" role="button" onclick="resetHome()">STREAM<span>FLIX</span></h1>
+      <nav class="nav-links" aria-label="Main Navigation">
+        <button class="nav-btn active" data-tab="home" onclick="filterTab('home', this)">Home</button>
+        <button class="nav-btn" data-tab="movies" onclick="filterTab('movies', this)">Movies</button>
+        <button class="nav-btn" data-tab="tv" onclick="filterTab('tv', this)">TV Shows</button>
+        <button class="nav-btn" data-tab="anime" onclick="filterTab('anime', this)">Anime</button>
+        <button class="nav-btn" data-tab="mylist" onclick="filterTab('mylist', this)">My List</button>
+      </nav>
+    </div>
+    <div class="nav-right">
+      <div class="search-box">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Search movies, series, anime..."
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+        />
+        <button type="button" id="clearSearchBtn" class="clear-search hidden" onclick="clearSearch()" title="Clear search">&times;</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Dynamic Hero Banner with Thumbnail + 10s Trailer Loop -->
+  <section class="hero" id="hero">
+    <div class="hero-video-wrapper" id="heroVideoWrapper">
+      <iframe
+        id="heroVideoFrame"
+        src=""
+        tabindex="-1"
+        frameborder="0"
+        allow="autoplay; encrypted-media"
+        allowfullscreen
+      ></iframe>
+    </div>
+
+    <div class="hero-overlay"></div>
+
+    <div class="hero-content">
+      <span class="badge" id="heroBadge">TRENDING #1</span>
+      <h2 id="heroTitle">Loading...</h2>
+      <p id="heroOverview">Fetching latest movies, series, and anime...</p>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="heroPlayBtn">▶ Watch Now</button>
+        <button class="btn btn-secondary" id="heroListBtn">+ My List</button>
+      </div>
+    </div>
+
+    <!-- Hero Carousel & Audio Controls -->
+    <div class="hero-controls">
+      <button class="hero-icon-btn" id="heroMuteBtn" onclick="toggleHeroMute()" title="Mute / Unmute Trailer">🔇</button>
+      <button class="hero-icon-btn" onclick="prevHeroSlide()" title="Previous">&#10094;</button>
+      <div class="hero-dots" id="heroDots"></div>
+      <button class="hero-icon-btn" onclick="nextHeroSlide()" title="Next">&#10095;</button>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="container" id="mainContent">
+    <!-- Lightweight Genre Filter Strip -->
+    <section class="genre-bar-wrapper" id="genreBarWrapper" aria-label="Genre Filters">
+      <div class="genre-bar" id="genreBar"></div>
+    </section>
+
+    <!-- Filtered / Search / My List Grid -->
+    <section class="grid-section hidden" id="gridSection">
+      <div class="grid-header">
+        <h3 class="section-title" id="gridTitle">Results</h3>
+      </div>
+      <div class="movie-grid" id="movieGrid"></div>
+      <div class="load-more-wrap hidden" id="loadMoreWrap">
+        <button type="button" class="btn btn-secondary" id="loadMoreBtn" onclick="loadMoreResults()">Load More</button>
+      </div>
+    </section>
+
+    <!-- Home Category Rows -->
+    <div id="rowsContainer"></div>
+  </main>
+
+  <!-- Video Player & Details Modal -->
+  <div class="modal hidden" id="playerModal" role="dialog" aria-modal="true">
+    <div class="modal-content" id="modalContent">
+      <button class="close-modal" id="closeModalBtn" onclick="closeModal()" title="Close Player">&times;</button>
+
+      <!-- Player Area -->
+      <div class="player-wrapper">
+        <iframe id="videoFrame" src="" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+      </div>
+
+      <!-- Multi-Provider Server Controls -->
+      <div class="player-controls">
+        <div class="server-buttons" id="serverButtons">
+          <span>Servers:</span>
+          <button class="srv-btn active" data-source="vidlink" onclick="switchSource('vidlink')">Server 1 (VidLink)</button>
+          <button class="srv-btn" data-source="embedsu" onclick="switchSource('embedsu')">Server 2 (EmbedSU)</button>
+          <button class="srv-btn" data-source="autoembed" onclick="switchSource('autoembed')">Server 3 (AutoEmbed)</button>
+          <button class="srv-btn" data-source="vidsrc" onclick="switchSource('vidsrc')">Server 4 (VidSrc)</button>
+          <button class="srv-btn" data-source="multiembed" onclick="switchSource('multiembed')">Server 5 (MultiEmbed)</button>
+          <button class="srv-btn" data-source="trailer" onclick="switchSource('trailer')">Trailer</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="modalListBtn">+ Add to My List</button>
+      </div>
+
+      <!-- TV-Friendly Season & Episode Button Selectors -->
+      <div class="tv-controls hidden" id="tvControls">
+        <div class="selector-group">
+          <span class="selector-label">Seasons:</span>
+          <div class="pill-list" id="seasonList"></div>
+        </div>
+        <div class="selector-group">
+          <span class="selector-label">Episodes:</span>
+          <div class="pill-list" id="episodeList"></div>
+        </div>
+      </div>
+
+      <!-- Movie/Show Details -->
+      <div class="modal-details">
+        <div class="details-header">
+          <h2 id="modalTitle">Movie Title</h2>
+          <span class="rating" id="modalRating">★ 8.5</span>
+          <span class="meta" id="modalMeta">2026 • MOVIE</span>
+        </div>
+        <p id="modalOverview">Synopsis goes here...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p style="color: #ffffff; font-weight: 500; margin-bottom: 6px;">This is created by Janwry and this is for personal use only.</p>
+    <p>This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="TMDB Logo" class="tmdb-logo" />
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
