@@ -1,7 +1,7 @@
 const API_KEY = '257f548bfaa990b9cffb5b5f6ee2e40b';
 const BASE_URL = 'https://api.themoviedb.org/3';
 const IMG_ORIGINAL = 'https://image.tmdb.org/t/p/original';
-const IMG_CARD = 'https://image.tmdb.org/t/p/w342'; // Crisp & ~45% faster to load on mobile/TV
+const IMG_CARD = 'https://image.tmdb.org/t/p/w342';
 
 const CATEGORIES = [
   { title: 'Trending Now', url: `/trending/all/week?api_key=${API_KEY}`, type: 'all' },
@@ -14,9 +14,8 @@ const CATEGORIES = [
   { title: 'Action & Adventure', url: `/discover/movie?api_key=${API_KEY}&with_genres=28`, type: 'movie' }
 ];
 
-// Genre definitions mapped accurately for both Movies and TV Shows
 const GENRES = [
-  { id: 'all', label: 'All', movie: null, tv: null },
+  { id: 'all', label: 'All Genres', movie: null, tv: null },
   { id: 'horror', label: 'Horror', movie: '27', tv: '9648,10765' },
   { id: 'comedy', label: 'Comedy', movie: '35', tv: '35' },
   { id: 'action', label: 'Action', movie: '28', tv: '10759' },
@@ -29,11 +28,26 @@ const GENRES = [
   { id: 'documentary', label: 'Documentary', movie: '99', tv: '99' }
 ];
 
-// Lightweight In-Memory API Cache
+const COUNTRIES = [
+  { id: 'all', label: 'All Countries' },
+  { id: 'PH', label: 'Philippines' },
+  { id: 'KR', label: 'South Korea' },
+  { id: 'JP', label: 'Japan' },
+  { id: 'US', label: 'USA' },
+  { id: 'TH', label: 'Thailand' },
+  { id: 'GB', label: 'UK' },
+  { id: 'CN', label: 'China' },
+  { id: 'TW', label: 'Taiwan' },
+  { id: 'IN', label: 'India' },
+  { id: 'ES', label: 'Spain' },
+  { id: 'FR', label: 'France' }
+];
+
 const apiCache = new Map();
 
 let activeTab = 'home';
 let activeGenre = 'all';
+let activeCountry = 'all';
 let gridPage = 1;
 let hasMoreGridPages = false;
 let isFetchingGrid = false;
@@ -54,11 +68,10 @@ let heroAdvanceTimer = null;
 let isHeroInView = true;
 
 document.addEventListener('DOMContentLoaded', () => {
-  renderGenreBar();
+  renderFilterBars();
   loadHome();
   setupPerformanceObservers();
 
-  // Passive scroll listener for smooth 60fps scrolling
   let scrollTicking = false;
   window.addEventListener('scroll', () => {
     if (!scrollTicking) {
@@ -70,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }, { passive: true });
 
-  // Live Search (Handles 1+ chars cleanly with zero auto-delete)
+  // Live Search
   let searchTimer;
   const searchInput = document.getElementById('searchInput');
   const clearBtn = document.getElementById('clearSearchBtn');
@@ -103,7 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Android TV D-Pad Focus Auto-Scroll
   document.addEventListener('focusin', (e) => {
     const t = e.target;
-    if (t && (t.classList.contains('card') || t.classList.contains('pill-btn') || t.classList.contains('srv-btn') || t.classList.contains('genre-pill'))) {
+    if (
+      t &&
+      (t.classList.contains('card') ||
+        t.classList.contains('pill-btn') ||
+        t.classList.contains('srv-btn') ||
+        t.classList.contains('genre-pill') ||
+        t.classList.contains('country-pill'))
+    ) {
       t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   });
@@ -129,7 +149,6 @@ async function fetchTMDB(endpoint) {
 }
 
 function setupPerformanceObservers() {
-  // Pause off-screen Hero trailer when scrolled down to save CPU/RAM on TV & mobile
   const heroEl = document.getElementById('hero');
   if ('IntersectionObserver' in window && heroEl) {
     const observer = new IntersectionObserver((entries) => {
@@ -145,7 +164,6 @@ function setupPerformanceObservers() {
     observer.observe(heroEl);
   }
 
-  // Pause hero video when browser tab is minimized/hidden
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       stopHeroShowcase();
@@ -161,7 +179,6 @@ async function loadHome() {
   const rowsContainer = document.getElementById('rowsContainer');
   rowsContainer.innerHTML = '';
 
-  // Fetch all categories simultaneously for instant startup
   const results = await Promise.all(CATEGORIES.map(cat => fetchTMDB(cat.url)));
   const frag = document.createDocumentFragment();
 
@@ -184,12 +201,11 @@ async function loadHome() {
   rowsContainer.appendChild(frag);
 }
 
-/* ================= GENRE FILTER BAR ================= */
+/* ================= GENRE & COUNTRY FILTER BARS ================= */
 
-function renderGenreBar() {
-  const bar = document.getElementById('genreBar');
-  const frag = document.createDocumentFragment();
-
+function renderFilterBars() {
+  const genreBar = document.getElementById('genreBar');
+  const genreFrag = document.createDocumentFragment();
   GENRES.forEach(g => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -197,30 +213,71 @@ function renderGenreBar() {
     btn.dataset.genre = g.id;
     btn.textContent = g.label;
     btn.onclick = () => selectGenre(g.id);
-    frag.appendChild(btn);
+    genreFrag.appendChild(btn);
   });
+  genreBar.innerHTML = '';
+  genreBar.appendChild(genreFrag);
 
-  bar.innerHTML = '';
-  bar.appendChild(frag);
+  const countryBar = document.getElementById('countryBar');
+  const countryFrag = document.createDocumentFragment();
+  COUNTRIES.forEach(c => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'country-pill' + (c.id === activeCountry ? ' active' : '');
+    btn.dataset.country = c.id;
+    btn.textContent = c.label;
+    btn.onclick = () => selectCountry(c.id);
+    countryFrag.appendChild(btn);
+  });
+  countryBar.innerHTML = '';
+  countryBar.appendChild(countryFrag);
+}
+
+function updateFilterHighlights() {
+  document.querySelectorAll('.genre-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.genre === activeGenre);
+  });
+  document.querySelectorAll('.country-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.country === activeCountry);
+  });
 }
 
 function selectGenre(genreId) {
   activeGenre = genreId;
-  document.querySelectorAll('.genre-pill').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.genre === genreId);
-  });
+  updateFilterHighlights();
 
-  // Clear active search query when picking a genre pill
   const searchInput = document.getElementById('searchInput');
   if (searchInput.value.trim().length > 0) {
     searchInput.value = '';
     document.getElementById('clearSearchBtn').classList.add('hidden');
+    setActiveTabButton(activeTab);
   }
 
   refreshCurrentView();
 }
 
-/* ================= UNIFIED VIEW & GENRE ROUTING ================= */
+function selectCountry(countryId) {
+  activeCountry = countryId;
+  updateFilterHighlights();
+
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput.value.trim().length > 0) {
+    searchInput.value = '';
+    document.getElementById('clearSearchBtn').classList.add('hidden');
+    setActiveTabButton(activeTab);
+  }
+
+  refreshCurrentView();
+}
+
+function resetFiltersOnly() {
+  activeGenre = 'all';
+  activeCountry = 'all';
+  updateFilterHighlights();
+  refreshCurrentView();
+}
+
+/* ================= UNIFIED VIEW, GENRE & COUNTRY ROUTING ================= */
 
 function setActiveTabButton(tab) {
   document.querySelectorAll('.nav-btn').forEach(b => {
@@ -245,8 +302,9 @@ function filterTab(tab, btnEl) {
 function resetHome() {
   activeTab = 'home';
   activeGenre = 'all';
+  activeCountry = 'all';
   setActiveTabButton('home');
-  document.querySelectorAll('.genre-pill').forEach(b => b.classList.toggle('active', b.dataset.genre === 'all'));
+  updateFilterHighlights();
   document.getElementById('searchInput').value = '';
   document.getElementById('clearSearchBtn').classList.add('hidden');
   refreshCurrentView();
@@ -261,15 +319,30 @@ function clearSearch() {
   searchInput.focus();
 }
 
+function buildFilterTitle(categoryNoun) {
+  const genreObj = GENRES.find(g => g.id === activeGenre) || GENRES[0];
+  const countryObj = COUNTRIES.find(c => c.id === activeCountry) || COUNTRIES[0];
+
+  const parts = [];
+  if (activeGenre !== 'all') parts.push(genreObj.label);
+  if (activeCountry !== 'all') parts.push(countryObj.label);
+
+  if (parts.length === 0) {
+    return `Popular ${categoryNoun}`;
+  }
+  return `${parts.join(' • ')} ${categoryNoun}`;
+}
+
 async function refreshCurrentView() {
   const hero = document.getElementById('hero');
   const main = document.getElementById('mainContent');
   const rows = document.getElementById('rowsContainer');
   const gridSec = document.getElementById('gridSection');
   const genreBarWrap = document.getElementById('genreBarWrapper');
+  const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
-  // Show Home Rows only when on Home tab + 'all' genre
-  if (activeTab === 'home' && activeGenre === 'all') {
+  // Show Home Rows only when on Home tab + no active Genre or Country filter
+  if (activeTab === 'home' && activeGenre === 'all' && activeCountry === 'all') {
     genreBarWrap.classList.remove('hidden');
     hero.classList.remove('hidden');
     main.classList.remove('no-hero');
@@ -288,6 +361,7 @@ async function refreshCurrentView() {
 
   if (activeTab === 'mylist') {
     genreBarWrap.classList.add('hidden');
+    resetFiltersBtn.classList.add('hidden');
     document.getElementById('loadMoreWrap').classList.add('hidden');
     document.getElementById('gridTitle').textContent = 'My Watchlist';
     const grid = document.getElementById('movieGrid');
@@ -299,6 +373,9 @@ async function refreshCurrentView() {
   }
 
   genreBarWrap.classList.remove('hidden');
+  const hasActiveFilter = activeGenre !== 'all' || activeCountry !== 'all';
+  resetFiltersBtn.classList.toggle('hidden', !hasActiveFilter);
+
   gridPage = 1;
   await fetchAndRenderGrid(false);
 }
@@ -324,44 +401,53 @@ async function fetchAndRenderGrid(append = false) {
   }
 
   const genreObj = GENRES.find(g => g.id === activeGenre) || GENRES[0];
+  const countryParam = activeCountry !== 'all' ? `&with_origin_country=${activeCountry}` : '';
   let combinedItems = [];
   let maxPages = 1;
 
   try {
     if (activeTab === 'home') {
-      // Filtered Genre across Movies & TV Shows
-      gridTitle.textContent = `${genreObj.label} Movies & TV Shows`;
+      gridTitle.textContent = buildFilterTitle('Movies & TV Shows');
+      const movGenreParam = genreObj.movie ? `&with_genres=${genreObj.movie}` : '';
+      const tvGenreParam = genreObj.tv ? `&with_genres=${genreObj.tv}` : '';
+
       const [movData, tvData] = await Promise.all([
-        fetchTMDB(`/discover/movie?api_key=${API_KEY}&with_genres=${genreObj.movie}&sort_by=popularity.desc&page=${gridPage}`),
-        fetchTMDB(`/discover/tv?api_key=${API_KEY}&with_genres=${genreObj.tv}&sort_by=popularity.desc&page=${gridPage}`)
+        fetchTMDB(`/discover/movie?api_key=${API_KEY}${movGenreParam}${countryParam}&sort_by=popularity.desc&page=${gridPage}`),
+        fetchTMDB(`/discover/tv?api_key=${API_KEY}${tvGenreParam}${countryParam}&sort_by=popularity.desc&page=${gridPage}`)
       ]);
       const movies = (movData.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'movie' }));
       const shows = (tvData.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'tv' }));
       combinedItems = interleaveArrays(movies, shows);
       maxPages = Math.max(movData.total_pages || 1, tvData.total_pages || 1);
     } else if (activeTab === 'movies') {
-      gridTitle.textContent = activeGenre === 'all' ? 'Popular Movies' : `${genreObj.label} Movies`;
-      const endpoint = activeGenre === 'all'
+      gridTitle.textContent = buildFilterTitle('Movies');
+      const usePopular = activeGenre === 'all' && activeCountry === 'all';
+      const movGenreParam = genreObj.movie ? `&with_genres=${genreObj.movie}` : '';
+      const endpoint = usePopular
         ? `/movie/popular?api_key=${API_KEY}&page=${gridPage}`
-        : `/discover/movie?api_key=${API_KEY}&with_genres=${genreObj.movie}&sort_by=popularity.desc&page=${gridPage}`;
+        : `/discover/movie?api_key=${API_KEY}${movGenreParam}${countryParam}&sort_by=popularity.desc&page=${gridPage}`;
       const data = await fetchTMDB(endpoint);
       combinedItems = (data.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'movie' }));
       maxPages = data.total_pages || 1;
     } else if (activeTab === 'tv') {
-      gridTitle.textContent = activeGenre === 'all' ? 'Popular TV Shows' : `${genreObj.label} TV Shows`;
-      const endpoint = activeGenre === 'all'
+      gridTitle.textContent = buildFilterTitle('TV Shows');
+      const usePopular = activeGenre === 'all' && activeCountry === 'all';
+      const tvGenreParam = genreObj.tv ? `&with_genres=${genreObj.tv}` : '';
+      const endpoint = usePopular
         ? `/tv/popular?api_key=${API_KEY}&page=${gridPage}`
-        : `/discover/tv?api_key=${API_KEY}&with_genres=${genreObj.tv}&sort_by=popularity.desc&page=${gridPage}`;
+        : `/discover/tv?api_key=${API_KEY}${tvGenreParam}${countryParam}&sort_by=popularity.desc&page=${gridPage}`;
       const data = await fetchTMDB(endpoint);
       combinedItems = (data.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'tv' }));
       maxPages = data.total_pages || 1;
     } else if (activeTab === 'anime') {
-      gridTitle.textContent = activeGenre === 'all' ? 'Popular Anime' : `${genreObj.label} Anime`;
+      gridTitle.textContent = buildFilterTitle('Anime');
       const tvGenres = activeGenre === 'all' ? '16' : `16,${genreObj.tv}`;
       const movGenres = activeGenre === 'all' ? '16' : `16,${genreObj.movie}`;
+      const originParam = activeCountry !== 'all' ? `&with_origin_country=${activeCountry}` : '&with_original_language=ja';
+
       const [animeTV, animeMov] = await Promise.all([
-        fetchTMDB(`/discover/tv?api_key=${API_KEY}&with_genres=${tvGenres}&with_original_language=ja&sort_by=popularity.desc&page=${gridPage}`),
-        fetchTMDB(`/discover/movie?api_key=${API_KEY}&with_genres=${movGenres}&with_original_language=ja&sort_by=popularity.desc&page=${gridPage}`)
+        fetchTMDB(`/discover/tv?api_key=${API_KEY}&with_genres=${tvGenres}${originParam}&sort_by=popularity.desc&page=${gridPage}`),
+        fetchTMDB(`/discover/movie?api_key=${API_KEY}&with_genres=${movGenres}${originParam}&sort_by=popularity.desc&page=${gridPage}`)
       ]);
       const tvList = (animeTV.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'tv' }));
       const movList = (animeMov.results || []).filter(i => i.poster_path).map(i => ({ ...i, _type: 'movie' }));
@@ -372,7 +458,7 @@ async function fetchAndRenderGrid(append = false) {
     if (!append) grid.innerHTML = '';
 
     if (combinedItems.length === 0 && !append) {
-      grid.innerHTML = '<p style="color:#a3a8b8">No titles found for this filter.</p>';
+      grid.innerHTML = '<p style="color:#a3a8b8">No titles found for this genre and country combination.</p>';
     } else {
       const frag = document.createDocumentFragment();
       combinedItems.forEach(item => frag.appendChild(createCard(item, item._type)));
@@ -567,6 +653,7 @@ async function searchMedia(query) {
   document.getElementById('mainContent').classList.add('no-hero');
   document.getElementById('genreBarWrapper').classList.add('hidden');
   document.getElementById('rowsContainer').classList.add('hidden');
+  document.getElementById('resetFiltersBtn').classList.add('hidden');
   document.getElementById('loadMoreWrap').classList.add('hidden');
 
   const gridSec = document.getElementById('gridSection');
