@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CadenFlix - Watch Movies, TV Shows & Anime</title>
-  <link rel="icon" type="image/png" href="cadenicon.png" />
-  <link rel="apple-touch-icon" href="cadenicon.png" />
+  <title>StreamFlix - Watch Movies, TV Shows & Anime</title>
+  <link rel="icon" type="image/png" href="icon.png" />
+  <link rel="apple-touch-icon" href="icon.png" />
   <link rel="preconnect" href="https://api.themoviedb.org" />
   <link rel="preconnect" href="https://image.tmdb.org" />
   <link rel="stylesheet" href="style.css" />
@@ -14,7 +14,7 @@
   <!-- Navbar -->
   <header class="navbar" id="navbar">
     <div class="nav-left">
-      <h1 class="logo" tabindex="0" role="button" onclick="resetHome()">CADEN<span>FLIX</span></h1>
+      <h1 class="logo" tabindex="0" role="button" onclick="resetHome()">STREAM<span>FLIX</span></h1>
       <nav class="nav-links" aria-label="Main Navigation">
         <button class="nav-btn active" data-tab="home" onclick="filterTab('home', this)">Home</button>
         <button class="nav-btn" data-tab="movies" onclick="filterTab('movies', this)">Movies</button>
@@ -75,15 +75,17 @@
 
   <!-- Main Content -->
   <main class="container" id="mainContent">
-    <!-- Lightweight Genre Filter Strip -->
-    <section class="genre-bar-wrapper" id="genreBarWrapper" aria-label="Genre Filters">
+    <!-- Lightweight Genre & Country Filter Strips -->
+    <section class="genre-bar-wrapper" id="genreBarWrapper" aria-label="Genre and Country Filters">
       <div class="genre-bar" id="genreBar"></div>
+      <div class="genre-bar country-bar" id="countryBar"></div>
     </section>
 
     <!-- Filtered / Search / My List Grid -->
     <section class="grid-section hidden" id="gridSection">
       <div class="grid-header">
         <h3 class="section-title" id="gridTitle">Results</h3>
+        <button type="button" class="btn btn-secondary btn-sm hidden" id="resetFiltersBtn" onclick="resetFiltersOnly()">Reset Filters</button>
       </div>
       <div class="movie-grid" id="movieGrid"></div>
       <div class="load-more-wrap hidden" id="loadMoreWrap">
@@ -127,7 +129,7 @@
         </div>
         <div class="selector-group">
           <span class="selector-label">Episodes:</span>
-          <div class="pill-list" id="episodeList"></div>
+          <div class="pill-list episode-grid" id="episodeList"></div>
         </div>
       </div>
 
